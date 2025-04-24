@@ -2,9 +2,13 @@ package project.taskmanager;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
@@ -19,7 +23,7 @@ import java.util.stream.Collectors;
 
 public class MainGUI extends Application {
     private TaskManager manager = new TaskManager();
-    private TextArea outputArea;
+    private TableView<Task> tableView;
 
     public static void main(String[] args) {
         launch(args);
@@ -41,9 +45,8 @@ public class MainGUI extends Application {
         Button deleteButton = createButton("Delete Task");
         Button exitButton = createButton("Exit");
 
-        outputArea = new TextArea();
-        outputArea.setEditable(false);
-        outputArea.setPrefHeight(300);
+        tableView = new TableView<>();
+        setupTableColumns();
 
         addButton.setOnAction(e -> addTaskDialog());
         showAllButton.setOnAction(e -> showTasks(manager.getTasks()));
@@ -59,12 +62,12 @@ public class MainGUI extends Application {
         deleteButton.setOnAction(e -> deleteTaskDialog());
         exitButton.setOnAction(e -> Platform.exit());
 
-        VBox vbox = new VBox(12, titleLabel, addButton, showAllButton, showWorkButton, showPersonalButton, showUrgentButton,
-                deleteButton, exitButton, outputArea);
+        VBox vbox = new VBox(12, titleLabel, addButton, showAllButton, showWorkButton, showPersonalButton,
+                showUrgentButton, deleteButton, exitButton, tableView);
         vbox.setAlignment(Pos.CENTER);
         vbox.setStyle("-fx-padding: 15;");
 
-        Scene scene = new Scene(vbox, 450, 650);
+        Scene scene = new Scene(vbox, 800, 650);
         primaryStage.setScene(scene);
         primaryStage.show();
 
@@ -78,13 +81,35 @@ public class MainGUI extends Application {
         return button;
     }
 
+    private void setupTableColumns() {
+        TableColumn<Task, Integer> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+
+        TableColumn<Task, String> typeCol = new TableColumn<>("Type");
+        typeCol.setCellValueFactory(data -> {
+            if (data.getValue() instanceof WorkTask)
+                return new ReadOnlyStringWrapper("Work");
+            if (data.getValue() instanceof PersonalTask)
+                return new ReadOnlyStringWrapper("Personal");
+            return new ReadOnlyStringWrapper("Unknown");
+        });
+
+        TableColumn<Task, String> descCol = new TableColumn<>("Description");
+        descCol.setCellValueFactory(new PropertyValueFactory<>("description"));
+
+        TableColumn<Task, String> dueDateCol = new TableColumn<>("Due Date");
+        dueDateCol.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().getDueDate().toString()));
+
+        TableColumn<Task, Integer> priorityCol = new TableColumn<>("Priority");
+        priorityCol.setCellValueFactory(new PropertyValueFactory<>("priority"));
+
+        tableView.getColumns().addAll(idCol, typeCol, descCol, dueDateCol, priorityCol);
+        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+    }
+
     private void showTasks(List<Task> tasks) {
-        outputArea.clear();
-        StringBuilder sb = new StringBuilder();
-        for (Task task : tasks) {
-            sb.append(task).append("\n");
-        }
-        outputArea.appendText(sb.toString());
+        ObservableList<Task> observableTasks = FXCollections.observableArrayList(tasks);
+        tableView.setItems(observableTasks);
     }
 
     private void addTaskDialog() {
@@ -161,7 +186,7 @@ public class MainGUI extends Application {
             return null;
         });
 
-        dialog.showAndWait();
+        dialog.showAndWait().ifPresent(task -> showTasks(manager.getTasks()));
     }
 
     private void deleteTaskDialog() {
@@ -173,6 +198,7 @@ public class MainGUI extends Application {
             try {
                 int taskId = Integer.parseInt(id.trim());
                 manager.deleteTask(taskId);
+                showTasks(manager.getTasks());
             } catch (NumberFormatException e) {
                 showError("Invalid ID");
             }
@@ -207,6 +233,6 @@ public class MainGUI extends Application {
                     });
                 }
             }
-        }, 0, 60000); // Check every minute
+        }, 0, 60_000); // Check every minute
     }
 }
