@@ -2,9 +2,11 @@ package project.taskmanager;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 import java.time.LocalDate;
@@ -27,13 +29,17 @@ public class MainGUI extends Application {
     public void start(Stage primaryStage) {
         primaryStage.setTitle("Task Manager");
 
-        Button addButton = new Button("Add Task");
-        Button showAllButton = new Button("Show All Tasks");
-        Button showWorkButton = new Button("Show Work Tasks");
-        Button showPersonalButton = new Button("Show Personal Tasks");
-        Button showUrgentButton = new Button("Show Urgent Tasks");
-        Button deleteButton = new Button("Delete Task");
-        Button exitButton = new Button("Exit");
+        Label titleLabel = new Label("Task Manager");
+        titleLabel.setFont(new Font("Arial", 24));
+        titleLabel.setAlignment(Pos.CENTER);
+
+        Button addButton = createButton("Add Task");
+        Button showAllButton = createButton("Show All Tasks");
+        Button showWorkButton = createButton("Show Work Tasks");
+        Button showPersonalButton = createButton("Show Personal Tasks");
+        Button showUrgentButton = createButton("Show Urgent Tasks");
+        Button deleteButton = createButton("Delete Task");
+        Button exitButton = createButton("Exit");
 
         outputArea = new TextArea();
         outputArea.setEditable(false);
@@ -53,13 +59,23 @@ public class MainGUI extends Application {
         deleteButton.setOnAction(e -> deleteTaskDialog());
         exitButton.setOnAction(e -> Platform.exit());
 
-        VBox vbox = new VBox(10, addButton, showAllButton, showWorkButton, showPersonalButton, showUrgentButton,
+        VBox vbox = new VBox(12, titleLabel, addButton, showAllButton, showWorkButton, showPersonalButton, showUrgentButton,
                 deleteButton, exitButton, outputArea);
-        Scene scene = new Scene(vbox, 400, 600);
+        vbox.setAlignment(Pos.CENTER);
+        vbox.setStyle("-fx-padding: 15;");
+
+        Scene scene = new Scene(vbox, 450, 650);
         primaryStage.setScene(scene);
         primaryStage.show();
 
         startReminderChecker();
+    }
+
+    private Button createButton(String text) {
+        Button button = new Button(text);
+        button.setMinWidth(300);
+        button.setFont(Font.font("Arial", 14));
+        return button;
     }
 
     private void showTasks(List<Task> tasks) {
@@ -87,13 +103,13 @@ public class MainGUI extends Application {
         TextField minuteField = new TextField();
         minuteField.setPromptText("Minute (0-59)");
 
-        ComboBox<Integer> priorityComboBox = new ComboBox<>();
-        priorityComboBox.getItems().addAll(1, 2, 3);
+        ComboBox<String> priorityComboBox = new ComboBox<>();
+        priorityComboBox.getItems().addAll("High", "Medium", "Low");
         priorityComboBox.setPromptText("Priority");
 
-        ComboBox<Integer> typeComboBox = new ComboBox<>();
-        typeComboBox.getItems().addAll(1, 2);
-        typeComboBox.setPromptText("Task Type (1=Work,2=Personal)");
+        ComboBox<String> typeComboBox = new ComboBox<>();
+        typeComboBox.getItems().addAll("Work", "Personal");
+        typeComboBox.setPromptText("Task Type");
 
         VBox content = new VBox(10, descriptionField, dueDatePicker, hourField, minuteField, priorityComboBox, typeComboBox);
         dialog.getDialogPane().setContent(content);
@@ -108,20 +124,35 @@ public class MainGUI extends Application {
                     LocalDate date = dueDatePicker.getValue();
                     int hour = Integer.parseInt(hourField.getText().trim());
                     int minute = Integer.parseInt(minuteField.getText().trim());
-                    Integer priority = priorityComboBox.getValue();
-                    Integer type = typeComboBox.getValue();
+                    String priorityStr = priorityComboBox.getValue();
+                    String typeStr = typeComboBox.getValue();
 
-                    if (description.isEmpty() || date == null || priority == null || type == null) {
+                    if (description.isEmpty() || date == null || priorityStr == null || typeStr == null) {
                         showError("All fields are required.");
                         return null;
                     }
 
                     LocalDateTime dueDate = LocalDateTime.of(date, LocalTime.of(hour, minute));
-                    Task task = (type == 1)
-                            ? new WorkTask(description, dueDate, priority)
-                            : new PersonalTask(description, dueDate, priority);
-                    manager.addTask(task);
-                    return task;
+                    int priority = switch (priorityStr) {
+                        case "High" -> 1;
+                        case "Medium" -> 2;
+                        case "Low" -> 3;
+                        default -> 2;
+                    };
+
+                    Task task = switch (typeStr) {
+                        case "Work" -> new WorkTask(description, dueDate, priority);
+                        case "Personal" -> new PersonalTask(description, dueDate, priority);
+                        default -> null;
+                    };
+
+                    if (task != null) {
+                        manager.addTask(task);
+                        return task;
+                    } else {
+                        showError("Invalid task type.");
+                        return null;
+                    }
                 } catch (Exception e) {
                     showError("Invalid input: " + e.getMessage());
                     return null;
